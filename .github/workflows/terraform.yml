@@ -16,17 +16,18 @@ jobs:
 
       - name: Create private key file
         run: |
-          cd poc
-          echo "${{ secrets.APP_PRIVATE_KEY }}" > private-key.pem
-          chmod 600 private-key.pem
+          echo "${{ secrets.APP_PRIVATE_KEY }}" > poc/private-key.pem
+          chmod 600 poc/private-key.pem
 
       - name: Terraform Init
+        working-directory: ./poc
         env:
           TF_VAR_app_id: ${{ secrets.APP_ID }}
           TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
         run: terraform init
 
       - name: Terraform Apply
+        working-directory: ./poc
         env:
           TF_VAR_app_id: ${{ secrets.APP_ID }}
           TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
