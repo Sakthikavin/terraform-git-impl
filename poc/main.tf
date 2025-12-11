@@ -52,7 +52,7 @@ resource "github_repository_file" "dataproduct_definition" {
   commit_message      = "Add ${var.data_product.display_name} data product definition"
   commit_author       = "Data Product Automation"
   commit_email        = "automation@company.com"
-  overwrite_on_create = false
+  overwrite_on_create = true
 }
 
 # Create PR
@@ -108,6 +108,8 @@ resource "github_repository_file" "dummy_workflow" {
   commit_message = "Add dummy GitHub Actions workflow"
   commit_author  = "Terraform Automation"
   commit_email   = "automation@example.com"
+
+    overwrite_on_create = true
 }
 
 output "pull_request_url" {
