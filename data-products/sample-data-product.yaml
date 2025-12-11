@@ -1,6 +1,0 @@
-"assets":
-- "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,sample_dataset,PROD)"
-"description": "This is a sample data product for testing."
-"display_name": "Sample Data Product"
-"domain": "sample-domain"
-"id": "sample-data-product"
