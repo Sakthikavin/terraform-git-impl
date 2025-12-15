@@ -3,9 +3,9 @@ name: Auto merge PR from allowed user
 on:
   pull_request:
     types:
-      - ready_for_review
       - opened
       - reopened
+      - ready_for_review
 
 permissions:
   contents: write
@@ -16,37 +16,63 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Verify PR author
+      - name: Verify PR author and state
         run: |
           echo "PR author: ${{ github.event.pull_request.user.login }}"
+
           if [[ "${{ github.event.pull_request.user.login }}" != "terraform-git-automation[bot]" ]]; then
-            echo "PR author not allowed. Skipping auto merge."
+            echo "PR author not allowed. Exiting."
             exit 0
           fi
-          echo "PR author allowed."
 
-      - name: Enable auto merge
+          if [[ "${{ github.event.pull_request.draft }}" == "true" ]]; then
+            echo "PR is draft. Exiting."
+            exit 0
+          fi
+
+          echo "PR eligible for auto merge."
+
+      - name: Enable auto merge with retry
         uses: actions/github-script@v7
         with:
           script: |
             const pr = context.payload.pull_request;
 
-            await github.graphql(`
-              mutation EnableAutoMerge($prId: ID!) {
-                enablePullRequestAutoMerge(input: {
-                  pullRequestId: $prId
-                  mergeMethod: SQUASH
-                }) {
-                  pullRequest {
-                    number
-                    autoMergeRequest {
-                      enabledAt
+            const sleep = ms => new Promise(r => setTimeout(r, ms));
+            const maxAttempts = 10;
+
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              try {
+                await github.graphql(`
+                  mutation EnableAutoMerge($prId: ID!) {
+                    enablePullRequestAutoMerge(input: {
+                      pullRequestId: $prId
+                      mergeMethod: SQUASH
+                    }) {
+                      pullRequest {
+                        number
+                        autoMergeRequest {
+                          enabledAt
+                        }
+                      }
                     }
                   }
-                }
-              }
-            `, {
-              prId: pr.node_id
-            });
+                `, { prId: pr.node_id });
 
-            console.log(`Auto merge enabled for PR #${pr.number}`);
+                console.log(`Auto merge enabled for PR #${pr.number}`);
+                return;
+
+              } catch (error) {
+                const message = error.message || "";
+
+                if (message.includes("unstable status")) {
+                  console.log(`PR unstable. Retrying (${attempt}/${maxAttempts})`);
+                  await sleep(15000);
+                  continue;
+                }
+
+                throw error;
+              }
+            }
+
+            core.setFailed("Timed out waiting for PR to become stable");
