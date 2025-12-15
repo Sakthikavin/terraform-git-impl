@@ -3,63 +3,48 @@ name: Auto merge PR from allowed user
 on:
   pull_request:
     types:
-      - opened
-      - synchronize
-      - reopened
       - ready_for_review
 
 permissions:
   contents: write
   pull-requests: write
-  checks: read
 
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check PR author
-        id: author_check
+      - name: Verify PR author
         run: |
-          echo "PR Author: ${{ github.event.pull_request.user.login }}"
+          echo "PR author: ${{ github.event.pull_request.user.login }}"
           if [[ "${{ github.event.pull_request.user.login }}" != "terraform-git-automation[bot]" ]]; then
-            echo "❌ PR author is not allowed. Exiting."
+            echo "PR author not allowed. Skipping auto merge."
             exit 0
           fi
-          echo "✅ PR author allowed."
+          echo "PR author allowed."
 
-      - name: Wait for all checks to pass
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const pr = context.payload.pull_request;
-            const { data: checks } = await github.rest.checks.listForRef({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              ref: pr.head.sha,
-            });
-
-            const failed = checks.check_runs.filter(
-              c => c.conclusion !== 'success' && c.conclusion !== 'neutral'
-            );
-
-            if (failed.length > 0) {
-              core.setFailed("❌ Some checks have not passed yet.");
-            } else {
-              console.log("✅ All checks passed.");
-            }
-
-      - name: Merge Pull Request
+      - name: Enable auto merge
         uses: actions/github-script@v7
         with:
           script: |
             const pr = context.payload.pull_request;
 
-            await github.rest.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pr.number,
-              merge_method: "squash", // or "merge" / "rebase"
+            await github.graphql(`
+              mutation EnableAutoMerge($prId: ID!) {
+                enablePullRequestAutoMerge(input: {
+                  pullRequestId: $prId
+                  mergeMethod: SQUASH
+                }) {
+                  pullRequest {
+                    number
+                    autoMergeRequest {
+                      enabledAt
+                    }
+                  }
+                }
+              }
+            `, {
+              prId: pr.node_id
             });
 
-            console.log("🚀 PR merged successfully");
+            console.log(`Auto merge enabled for PR #${pr.number}`);
