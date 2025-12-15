@@ -1,0 +1,50 @@
+name: Auto merge PR from allowed user
+
+on:
+  pull_request:
+    types:
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Verify PR author
+        run: |
+          echo "PR author: ${{ github.event.pull_request.user.login }}"
+          if [[ "${{ github.event.pull_request.user.login }}" != "terraform-git-automation[bot]" ]]; then
+            echo "PR author not allowed. Skipping auto merge."
+            exit 0
+          fi
+          echo "PR author allowed."
+
+      - name: Enable auto merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            await github.graphql(`
+              mutation EnableAutoMerge($prId: ID!) {
+                enablePullRequestAutoMerge(input: {
+                  pullRequestId: $prId
+                  mergeMethod: SQUASH
+                }) {
+                  pullRequest {
+                    number
+                    autoMergeRequest {
+                      enabledAt
+                    }
+                  }
+                }
+              }
+            `, {
+              prId: pr.node_id
+            });
+
+            console.log(`Auto merge enabled for PR #${pr.number}`);
