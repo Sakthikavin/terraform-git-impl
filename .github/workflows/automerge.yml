@@ -1,0 +1,65 @@
+name: Auto merge PR from allowed user
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+
+permissions:
+  contents: write
+  pull-requests: write
+  checks: read
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check PR author
+        id: author_check
+        run: |
+          echo "PR Author: ${{ github.event.pull_request.user.login }}"
+          if [[ "${{ github.event.pull_request.user.login }}" != "ALLOWED_GITHUB_USERNAME" ]]; then
+            echo "❌ PR author is not allowed. Exiting."
+            exit 0
+          fi
+          echo "✅ PR author allowed."
+
+      - name: Wait for all checks to pass
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { data: checks } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha,
+            });
+
+            const failed = checks.check_runs.filter(
+              c => c.conclusion !== 'success' && c.conclusion !== 'neutral'
+            );
+
+            if (failed.length > 0) {
+              core.setFailed("❌ Some checks have not passed yet.");
+            } else {
+              console.log("✅ All checks passed.");
+            }
+
+      - name: Merge Pull Request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+
+            await github.rest.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr.number,
+              merge_method: "squash", // or "merge" / "rebase"
+            });
+
+            console.log("🚀 PR merged successfully");
