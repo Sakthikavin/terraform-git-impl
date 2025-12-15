@@ -22,7 +22,7 @@ jobs:
         id: author_check
         run: |
           echo "PR Author: ${{ github.event.pull_request.user.login }}"
-          if [[ "${{ github.event.pull_request.user.login }}" != "ALLOWED_GITHUB_USERNAME" ]]; then
+          if [[ "${{ github.event.pull_request.user.login }}" != "terraform-git-automation[bot]" ]]; then
             echo "❌ PR author is not allowed. Exiting."
             exit 0
           fi
