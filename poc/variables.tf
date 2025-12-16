@@ -13,7 +13,7 @@ variable "github_org" {
 variable "repository" {
   type        = string
   description = "GitHub repository name"
-  default     = "terraform-git-impl"
+  default     = "AlbumAssist"
 }
 
 ######################################
