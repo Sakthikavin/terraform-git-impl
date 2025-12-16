@@ -1,0 +1,1 @@
+{"dataAccess":{"dev":{"sakthikavin.ss@thoughtworks.com":"user"}},"localTokenizationPolicy":{},"metadata":{},"operatingTeam":"StrawHats","ruleType":"AttachDataSource","sourceAdapter":{"adapterType":"Kafka","parameters":{}},"state":{"dev":"active"},"team":"StrawHats"}
