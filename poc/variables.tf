@@ -1,36 +1,35 @@
-# Provide default values for variables used in poc/main.tf
+######################################
+# GitHub Organization / Owner
+######################################
 variable "github_org" {
-    type    = string
-    default = "Sakthikavin"
+  type        = string
+  description = "GitHub organization or user name"
+  default     = "Sakthikavin"
 }
 
+######################################
+# GitHub Repository Name
+######################################
 variable "repository" {
-    type    = string
-    default = "terraform-git-impl"
+  type        = string
+  description = "GitHub repository name"
+  default     = "terraform-git-impl"
 }
 
-variable "data_product" {
-    type = object({
-        id           = string
-        domain       = string
-        display_name = string
-        description  = string
-        assets       = list(string)
-    })
-    default = {
-        id           = "sample-data-product"
-        domain       = "sample-domain"
-        display_name = "Sample Data Product"
-        description  = "This is a sample data product for testing."
-        assets       = ["urn:li:dataset:(urn:li:dataPlatform:hive,sample_dataset,PROD)"]
-    }
-}
-
+######################################
+# GitHub App ID
+######################################
 variable "app_id" {
-    type   = string
-    default = "2451004"  
+  type        = string
+  description = "GitHub App ID used for authentication"
+  default     = "2451004"
 }
+
+######################################
+# GitHub App Installation ID
+######################################
 variable "app_installation_id" {
-    type   = string
-    default = "99033654"
+  type        = string
+  description = "GitHub App installation ID"
+  default     = "99033654"
 }
