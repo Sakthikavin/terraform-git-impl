@@ -27,8 +27,39 @@ jobs:
         run: terraform init
 
       - name: Terraform Apply
+        id: apply
         working-directory: ./poc
         env:
           TF_VAR_app_id: ${{ secrets.APP_ID }}
           TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
-        run: terraform apply -auto-approve
+        run: |
+          terraform apply -auto-approve
+          echo "pr_number=$(terraform output -raw pull_request_url | grep -oP 'pull/\K[0-9]+')" >> $GITHUB_OUTPUT
+
+      - name: Generate GitHub App Token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Comment on PR
+        if: steps.apply.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          PR_NUMBER=$(terraform output -raw pull_request_url | grep -oP 'pull/\K[0-9]+')
+          GITHUB_ORG=$(terraform output -raw pull_request_url | grep -oP 'github.com/\K[^/]+')
+          REPO_NAME=$(terraform output -raw pull_request_url | grep -oP 'github.com/[^/]+/\K[^/]+')
+          
+          gh pr comment $PR_NUMBER --repo "$GITHUB_ORG/$REPO_NAME" --body "👋 Hey team,
+
+          This PR was created and configured by Terraform automation:
+          - ✅ AttachDataSource ADS configuration added
+          - ✅ Kafka source adapter setup
+          - ✅ GitHub Actions workflow for validation
+
+          Please review the ADS JSON and access controls.
+          
+          🤖 Auto-generated via Terraform in workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        working-directory: ./poc

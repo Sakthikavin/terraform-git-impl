@@ -133,6 +133,12 @@ resource "github_repository_pull_request" "ads_pr" {
 }
 
 ############################
+# Comment on Pull Request
+############################
+# Note: github_issue_comment is not supported in the GitHub provider
+# Comments on PRs need to be added via API or manually after creation or through github actions.
+
+############################
 # Outputs
 ############################
 output "pull_request_url" {
