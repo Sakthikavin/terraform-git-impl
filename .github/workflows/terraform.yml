@@ -46,11 +46,13 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          PR_NUMBER=$(terraform output -raw pull_request_url | grep -oP 'pull/\K[0-9]+')
-          GITHUB_ORG=$(terraform output -raw pull_request_url | grep -oP 'github.com/\K[^/]+')
-          REPO_NAME=$(terraform output -raw pull_request_url | grep -oP 'github.com/[^/]+/\K[^/]+')
+          PR_URL=$(terraform output -raw pull_request_url)
+          PR_NUMBER=$(echo "$PR_URL" | sed 's|.*/pull/||')
+          GITHUB_ORG=$(echo "$PR_URL" | sed 's|https://github.com/||' | cut -d'/' -f1)
+          REPO_NAME=$(echo "$PR_URL" | sed 's|https://github.com/||' | cut -d'/' -f2)
           
-          gh pr comment $PR_NUMBER --repo "$GITHUB_ORG/$REPO_NAME" --body "👋 Hey team,
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_ORG/$REPO_NAME" --body-file - << 'EOF'
+          👋 Hey team,
 
           This PR was created and configured by Terraform automation:
           - ✅ AttachDataSource ADS configuration added
@@ -59,5 +61,6 @@ jobs:
 
           Please review the ADS JSON and access controls.
           
-          🤖 Auto-generated via Terraform in workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          🤖 Auto-generated via Terraform in workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          EOF
         working-directory: ./poc
