@@ -32,9 +32,7 @@ jobs:
         env:
           TF_VAR_app_id: ${{ secrets.APP_ID }}
           TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
-        run: |
-          terraform apply -auto-approve
-          echo "pr_number=$(terraform output -raw pull_request_url | grep -oP 'pull/\K[0-9]+')" >> $GITHUB_OUTPUT
+        run: terraform apply -auto-approve
 
       - name: Generate GitHub App Token
         id: generate-token
