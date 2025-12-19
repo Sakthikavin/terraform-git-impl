@@ -32,7 +32,9 @@ jobs:
         env:
           TF_VAR_app_id: ${{ secrets.APP_ID }}
           TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
-        run: terraform apply -auto-approve
+        run: |
+          terraform apply -auto-approve
+          terraform output -raw pull_request_url > pr_url.txt
 
       - name: Generate GitHub App Token
         id: generate-token
@@ -46,7 +48,8 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.generate-token.outputs.token }}
         run: |
-          PR_URL=$(terraform output -raw pull_request_url)
+          PR_URL=$(cat pr_url.txt)
+          echo "Adding comment to PR: $PR_URL"
           PR_NUMBER=$(echo "$PR_URL" | sed 's|.*/pull/||')
           GITHUB_ORG=$(echo "$PR_URL" | sed 's|https://github.com/||' | cut -d'/' -f1)
           REPO_NAME=$(echo "$PR_URL" | sed 's|https://github.com/||' | cut -d'/' -f2)
