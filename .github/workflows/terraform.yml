@@ -16,6 +16,27 @@ jobs:
         with:
           terraform_wrapper: false
 
+      - name: Get user information
+        id: user-info
+        run: |
+          # Get user info from GitHub API
+          USER_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/users/${{ github.actor }})
+          
+          # Extract name and email
+          GITHUB_NAME=$(echo $USER_INFO | jq -r '.name // .login')
+          GITHUB_EMAIL=$(echo $USER_INFO | jq -r '.email // empty')
+          
+          # If email is not public, use noreply email
+          if [ -z "$GITHUB_EMAIL" ] || [ "$GITHUB_EMAIL" == "null" ]; then
+            GITHUB_EMAIL="${{ github.actor }}@users.noreply.github.com"
+          fi
+          
+          echo "commit_author=$GITHUB_NAME" >> $GITHUB_OUTPUT
+          echo "commit_email=$GITHUB_EMAIL" >> $GITHUB_OUTPUT
+          
+          echo "User: $GITHUB_NAME <$GITHUB_EMAIL>"
+
       - name: Create private key file
         run: |
           echo "${{ secrets.APP_PRIVATE_KEY }}" > poc/private-key.pem
@@ -26,6 +47,8 @@ jobs:
         env:
           TF_VAR_app_id: ${{ secrets.APP_ID }}
           TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
+          TF_VAR_commit_author: ${{ steps.user-info.outputs.commit_author }}
+          TF_VAR_commit_email: ${{ steps.user-info.outputs.commit_email }}
         run: terraform init
 
       - name: Terraform Apply
@@ -34,6 +57,8 @@ jobs:
         env:
           TF_VAR_app_id: ${{ secrets.APP_ID }}
           TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
+          TF_VAR_commit_author: ${{ steps.user-info.outputs.commit_author }}
+          TF_VAR_commit_email: ${{ steps.user-info.outputs.commit_email }}
         run: |
           terraform apply -auto-approve
           terraform output -raw pull_request_url > pr_url.txt
