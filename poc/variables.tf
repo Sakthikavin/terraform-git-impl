@@ -1,4 +1,13 @@
 ######################################
+# GitHub Token (OAuth/PAT)
+######################################
+variable "github_token" {
+  type        = string
+  description = "GitHub OAuth token or Personal Access Token (PAT) for authentication"
+  sensitive   = true
+}
+
+######################################
 # GitHub Organization / Owner
 ######################################
 variable "github_org" {
@@ -14,24 +23,6 @@ variable "repository" {
   type        = string
   description = "GitHub repository name"
   default     = "AlbumAssist"
-}
-
-######################################
-# GitHub App ID
-######################################
-variable "app_id" {
-  type        = string
-  description = "GitHub App ID used for authentication"
-  default     = "2451004"
-}
-
-######################################
-# GitHub App Installation ID
-######################################
-variable "app_installation_id" {
-  type        = string
-  description = "GitHub App installation ID"
-  default     = "99033654"
 }
 
 ######################################

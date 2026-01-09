@@ -8,16 +8,11 @@ terraform {
 }
 
 ############################
-# GitHub Provider (App Auth)
+# GitHub Provider (OAuth Token)
 ############################
 provider "github" {
   owner = var.github_org
-
-  app_auth {
-    id              = var.app_id
-    installation_id = var.app_installation_id
-    pem_file        = file("private-key.pem")
-  }
+  token = var.github_token
 }
 
 ############################

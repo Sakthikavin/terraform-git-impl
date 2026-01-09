@@ -1,4 +1,4 @@
-name: Terraform GitHub App Auth
+name: Terraform with Interactive Login
 
 on:
   workflow_dispatch:
@@ -16,37 +16,53 @@ jobs:
         with:
           terraform_wrapper: false
 
+      - name: GitHub Device Flow Login
+        id: gh-login
+        run: |
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔐 GitHub Authentication Required"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          # Authenticate with GitHub (will show device code)
+          gh auth login --web --scopes repo,workflow
+          
+          # Get the authenticated token
+          GH_TOKEN=$(gh auth token)
+          
+          # Mask token in logs
+          echo "::add-mask::$GH_TOKEN"
+          echo "github_token=$GH_TOKEN" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "✅ Authentication successful!"
+
       - name: Get user information
         id: user-info
+        env:
+          GH_TOKEN: ${{ steps.gh-login.outputs.github_token }}
         run: |
-          # Get user info from GitHub API
-          USER_INFO=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            https://api.github.com/users/${{ github.actor }})
+          # Get authenticated user info
+          USER_INFO=$(gh api /user)
           
-          # Extract name and email
           GITHUB_NAME=$(echo $USER_INFO | jq -r '.name // .login')
           GITHUB_EMAIL=$(echo $USER_INFO | jq -r '.email // empty')
+          GITHUB_USERNAME=$(echo $USER_INFO | jq -r '.login')
           
-          # If email is not public, use noreply email
+          # Fallback to noreply email
           if [ -z "$GITHUB_EMAIL" ] || [ "$GITHUB_EMAIL" == "null" ]; then
-            GITHUB_EMAIL="${{ github.actor }}@users.noreply.github.com"
+            GITHUB_EMAIL="${GITHUB_USERNAME}@users.noreply.github.com"
           fi
           
           echo "commit_author=$GITHUB_NAME" >> $GITHUB_OUTPUT
           echo "commit_email=$GITHUB_EMAIL" >> $GITHUB_OUTPUT
           
-          echo "User: $GITHUB_NAME <$GITHUB_EMAIL>"
-
-      - name: Create private key file
-        run: |
-          echo "${{ secrets.APP_PRIVATE_KEY }}" > poc/private-key.pem
-          chmod 600 poc/private-key.pem
+          echo "✅ Authenticated as: $GITHUB_NAME (@$GITHUB_USERNAME)"
 
       - name: Terraform Init
         working-directory: ./poc
         env:
-          TF_VAR_app_id: ${{ secrets.APP_ID }}
-          TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
+          TF_VAR_github_token: ${{ steps.gh-login.outputs.github_token }}
           TF_VAR_commit_author: ${{ steps.user-info.outputs.commit_author }}
           TF_VAR_commit_email: ${{ steps.user-info.outputs.commit_email }}
         run: terraform init
@@ -55,44 +71,38 @@ jobs:
         id: apply
         working-directory: ./poc
         env:
-          TF_VAR_app_id: ${{ secrets.APP_ID }}
-          TF_VAR_app_installation_id: ${{ secrets.APP_INSTALLATION_ID }}
+          TF_VAR_github_token: ${{ steps.gh-login.outputs.github_token }}
           TF_VAR_commit_author: ${{ steps.user-info.outputs.commit_author }}
           TF_VAR_commit_email: ${{ steps.user-info.outputs.commit_email }}
         run: |
           terraform apply -auto-approve
           terraform output -raw pull_request_url > pr_url.txt
-
-      - name: Generate GitHub App Token
-        id: generate-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          owner: Sakthikavin
-          repositories: AlbumAssist
+          
+          echo ""
+          echo "✅ Pull Request Created: $(cat pr_url.txt)"
 
       - name: Comment on PR
         if: steps.apply.outcome == 'success'
         env:
-          GH_TOKEN: ${{ steps.generate-token.outputs.token }}
+          GH_TOKEN: ${{ steps.gh-login.outputs.github_token }}
         run: |
           PR_URL=$(cat pr_url.txt)
-          echo "Adding comment to PR: $PR_URL"
           PR_NUMBER=$(echo "$PR_URL" | sed 's|.*/pull/||')
           GITHUB_ORG=$(echo "$PR_URL" | sed 's|https://github.com/||' | cut -d'/' -f1)
           REPO_NAME=$(echo "$PR_URL" | sed 's|https://github.com/||' | cut -d'/' -f2)
           
-          gh pr comment "$PR_NUMBER" --repo "$GITHUB_ORG/$REPO_NAME" --body-file - << 'EOF'
-          👋 Hey team,
+          gh pr comment "$PR_NUMBER" --repo "$GITHUB_ORG/$REPO_NAME" --body "👋 Hey team,
 
-          This PR was created and configured by Terraform automation:
-          - ✅ AttachDataSource ADS configuration added
-          - ✅ Kafka source adapter setup
-          - ✅ GitHub Actions workflow for validation
+          This PR was created by **${{ steps.user-info.outputs.commit_author }}** via Terraform automation:
+          - ✅ AttachDataSource ADS configuration
+          - ✅ Kafka source adapter configured
+          - ✅ GitHub Actions workflow
 
           Please review the ADS JSON and access controls.
           
-          🤖 Auto-generated via Terraform in workflow run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          EOF
+          🤖 _Auto-generated via Terraform - Workflow: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}_"
         working-directory: ./poc
+
+      - name: Cleanup
+        if: always()
+        run: gh auth logout --hostname github.com || true
